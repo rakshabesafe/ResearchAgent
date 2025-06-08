@@ -1,0 +1,4 @@
+Starting Echo MCP Server on http://localhost:8079
+Running with uvicorn. Access the server at http://localhost:8079/mcp (usually)
+INFO:     127.0.0.1:55684 - "POST /mcp HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:55684 - "POST /mcp/ HTTP/1.1" 200 OK
