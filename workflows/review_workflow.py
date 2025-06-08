@@ -1,5 +1,5 @@
 from agents.reviewer_agent import ReviewerAgent
-from praisonai import Task # Needed for type hinting
+from praisonai.agents_generator import PraisonTask as Task # Needed for type hinting
 
 class ReviewWorkflow:
     def __init__(self, reviewer_agent: ReviewerAgent):

@@ -5,12 +5,17 @@
 # 1. Make sure you have Python installed.
 # 2. Install the PraisonAI library:
 #    pip install praisonai
-# 3. Set your LLM API key as an environment variable. For example, for OpenAI:
-#    export OPENAI_API_KEY='your_api_key_here'
-#    (The script will default to a placeholder if no key is found)
+# 3. Set relevant environment variables:
+#    - LLM_PROVIDER: 'openai' (default) or 'ollama'
+#    - For OpenAI: OPENAI_API_KEY (will use placeholder if not set)
+#                  OPENAI_MODEL_NAME (optional, defaults to gpt-3.5-turbo)
+#    - For Ollama: OLLAMA_MODEL_NAME (required if LLM_PROVIDER is 'ollama')
+#                  OLLAMA_API_BASE (optional, LiteLLM usually picks this up from env)
 
 import os
-from praisonai import PraisonAI, PraisonAIAgent, Task # PraisonAIAgent, Task for context
+from praisonai import PraisonAI
+from praisonai.agents_generator import PraisonAgent as PraisonAIAgent # Discovered path
+from praisonai.agents_generator import PraisonTask as Task # Discovered path
 from tools.scientific_tools import ScientificTools
 
 # Agent imports
@@ -28,15 +33,49 @@ from workflows.analysis_writing_workflow import AnalysisAndWritingWorkflow
 from workflows.review_workflow import ReviewWorkflow
 
 # --- LLM Configuration for Agents ---
-# Set up the LLM. PraisonAI uses LiteLLM to support 100+ models.
-# By default, it will look for OPENAI_API_KEY.
-# If you want to use another model (e.g., Groq, Anthropic), set the corresponding env variables.
-# For this example, we'll use a placeholder if no key is found.
-if not os.environ.get("OPENAI_API_KEY"):
-    os.environ["OPENAI_API_KEY"] = "sk-your_api_key_here"
+llm_provider = os.environ.get("LLM_PROVIDER", "openai").lower()
+llm_config_params = {}
+
+print(f"--- Configuring LLM for provider: {llm_provider} ---")
+
+if llm_provider == "ollama":
+    ollama_model_name = os.environ.get("OLLAMA_MODEL_NAME")
+    if not ollama_model_name:
+        raise ValueError("OLLAMA_MODEL_NAME environment variable must be set when LLM_PROVIDER is 'ollama'.")
+    # llm_config_params['model'] = f"ollama/{ollama_model_name}" # PraisonAI __init__ does not take 'model'
+
+    ollama_api_base = os.environ.get("OLLAMA_API_BASE")
+    # if ollama_api_base: # PraisonAI __init__ does not take 'api_base'
+        # llm_config_params['api_base'] = ollama_api_base
+
+    # LiteLLM, used by PraisonAI, should pick up OLLAMA_MODEL_NAME and OLLAMA_API_BASE from environment variables.
+    # For LiteLLM to identify the model, OLLAMA_MODEL_NAME should be set, and then
+    # when making a call, the model string "ollama/<your_OLLAMA_MODEL_NAME>" is typically used.
+    # It's assumed PraisonAI/LiteLLM will construct this mapping internally or that
+    # setting environment variables like MODEL_NAME or LITELLM_MODEL might be needed for LiteLLM.
+    # For now, we rely on PraisonAI to correctly instruct LiteLLM based on env vars.
+    if ollama_api_base:
+        print(f"Using Ollama. Model: '{ollama_model_name}' (set via OLLAMA_MODEL_NAME env var). API Base: '{ollama_api_base}' (set via OLLAMA_API_BASE env var).")
+    else:
+        print(f"Using Ollama. Model: '{ollama_model_name}' (set via OLLAMA_MODEL_NAME env var). OLLAMA_API_BASE not set (LiteLLM will use default).")
+
+elif llm_provider == "openai":
+    if not os.environ.get("OPENAI_API_KEY"):
+        print("OPENAI_API_KEY not found, using placeholder key.")
+        os.environ["OPENAI_API_KEY"] = "sk-your_api_key_here" # Placeholder
+
+    openai_model_name = os.environ.get("OPENAI_MODEL_NAME", "gpt-3.5-turbo")
+    # PraisonAI constructor does not take 'model' for openai provider;
+    # LiteLLM likely uses OPENAI_MODEL_NAME env var or defaults.
+    # No model parameter is added to llm_config_params for openai.
+    print(f"Using OpenAI (model specified by OPENAI_MODEL_NAME env var: {openai_model_name} or LiteLLM default)")
+
+else:
+    raise ValueError(f"Unsupported LLM_PROVIDER: '{llm_provider}'. Must be 'openai' or 'ollama'.")
 
 # This PraisonAI instance is used to configure the LLM for individual agents
-llm_object_for_agents = PraisonAI()
+llm_object_for_agents = PraisonAI(**llm_config_params)
+print("--- LLM Configuration Complete ---")
 
 # --- Agent Instantiation ---
 researcher_agent_instance = ResearcherAgent(llm=llm_object_for_agents)
@@ -79,10 +118,17 @@ if __name__ == "__main__":
     all_tasks = tasks_hd + tasks_ex + tasks_aw + tasks_rev
 
     # Create and run the main crew
-    # This PraisonAI instance is the main orchestrator
-    crew_orchestrator = PraisonAI(agents=all_agents_instances, tasks=all_tasks)
+    # llm_object_for_agents is an instance of PraisonAI.
+    # Based on TypeError, PraisonAI.__init__ does not take 'agents' or 'tasks'.
+    # Thus, llm_object_for_agents must be the orchestrator.
+    # We need to find how to pass tasks to its main() method or if it auto-discovers them.
+    # Let's try passing tasks to main(). Agents are linked within tasks.
+    # Update: PraisonAI.main() does not take 'tasks' argument.
+    # Assuming PraisonAI instance (llm_object_for_agents) internally tracks tasks
+    # created with agents that were initialized with it.
 
-    final_manuscript = crew_orchestrator.main()
+    print("--- Attempting to run crew using llm_object_for_agents.main() ---")
+    final_manuscript = llm_object_for_agents.main()
 
     print("\n\n✅ AI Scientist Framework execution complete!")
     print("="*50)

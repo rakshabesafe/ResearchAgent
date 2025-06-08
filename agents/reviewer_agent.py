@@ -1,4 +1,5 @@
-from praisonai import PraisonAIAgent, Task
+from praisonai.agents_generator import PraisonAgent as PraisonAIAgent
+from praisonai.agents_generator import PraisonTask as Task
 
 class ReviewerAgent:
     def __init__(self, llm):
