@@ -1,6 +1,6 @@
 from agents.researcher_agent import ResearcherAgent
 from agents.designer_agent import DesignerAgent
-from praisonai import Task # Needed for type hinting if we add it
+from praisonai.agents_generator import PraisonTask as Task # Needed for type hinting if we add it
 
 class HypothesisDesignWorkflow:
     def __init__(self, researcher_agent: ResearcherAgent, designer_agent: DesignerAgent):
