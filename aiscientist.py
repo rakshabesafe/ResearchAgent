@@ -3,20 +3,14 @@
 # ... (rest of the header comments)
 
 import os
-import asyncio # Added for MCP and atexit
-import atexit   # Added for MCP cleanup
-import traceback # For more detailed error logging in MCP test
+import asyncio # Keep asyncio as PraisonAI/LiteLLM might use it internally
 
 from praisonai import PraisonAI
-from praisonai.agents_generator import PraisonAgent as PraisonAIAgent # Discovered path
-from praisonai.agents_generator import PraisonTask as Task # Discovered path
+from praisonai.agents_generator import PraisonAgent as PraisonAIAgent
+from praisonai.agents_generator import PraisonTask as Task
 
 from tools.scientific_tools import ScientificTools
-from tools.mcp_integration import MCPClientManager, MCPToolWrapper # Added for MCP
-# For the direct test, we might need to access the (potentially dummy) client classes
-from tools.mcp_integration import streamablehttp_client as mcp_streamablehttp_client
-from tools.mcp_integration import ClientSession as MCPClientSession
-
+# MCP related imports removed
 
 # Agent imports
 from agents.researcher_agent import ResearcherAgent
@@ -59,36 +53,11 @@ else:
 llm_object_for_agents = PraisonAI(**llm_config_params)
 print("--- LLM Configuration Complete ---")
 
-# --- MCP Setup ---
-print("--- Initializing MCP Client Manager ---")
-mcp_manager = MCPClientManager()
-
-# Define a wrapper function for asyncio.run for atexit
-def _run_async_cleanup():
-    try:
-        asyncio.run(mcp_manager.close_all_sessions())
-    except RuntimeError as e:
-        print(f"Error during atexit cleanup of MCP sessions: {e}")
-        try:
-            loop = asyncio.get_event_loop_policy().get_event_loop()
-            if loop.is_closed():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-            loop.run_until_complete(mcp_manager.close_all_sessions())
-        except Exception as final_e:
-            print(f"Fallback MCP cleanup also failed: {final_e}")
-
-atexit.register(_run_async_cleanup)
-print("--- MCP Client Manager Initialized and Cleanup Registered ---")
-
-MCP_TOOLS_CONFIG = [
-    {
-        "server_url": "http://localhost:8079/mcp",
-        "tool_name": "echo_tool",
-        "description": "Echoes a message using a local MCP server. Input: message (string).",
-        "assign_to_agent": "ResearcherAgent"
-    }
-]
+# --- MCP Setup Removed ---
+# MCPClientManager instantiation removed
+# atexit registration removed
+# _run_async_cleanup function removed
+# MCP_TOOLS_CONFIG list removed
 
 # --- Agent Instantiation ---
 researcher_agent_instance = ResearcherAgent(llm=llm_object_for_agents)
@@ -136,68 +105,8 @@ if __name__ == "__main__":
     print(final_manuscript)
     print("="*50)
 
-    # --- MCP Connection Test ---
-    print("\n--- Testing MCP Connection Logic ---")
-
-    async def _run_mcp_direct_test():
-        echo_tool_config = None
-        for config in MCP_TOOLS_CONFIG: # MCP_TOOLS_CONFIG is global
-            if config["tool_name"] == "echo_tool":
-                echo_tool_config = config
-                break
-
-        if not echo_tool_config:
-            print("MCP Echo Tool config not found. Test cannot run.")
-            return
-
-        server_url = echo_tool_config["server_url"]
-        print(f"MCP Test: Attempting to connect to MCP server at: {server_url}")
-
-        transport_cm = None
-        session = None # Renamed from 'session' in template to avoid conflict if any
-        try:
-            # Using imports from tools.mcp_integration which handle dummy classes if mcp not installed
-            print("MCP Test: About to call mcp_streamablehttp_client...")
-            transport_cm = mcp_streamablehttp_client(server_url)
-            print("MCP Test: mcp_streamablehttp_client call returned. About to __aenter__ transport...")
-
-            read_stream, write_stream, actual_transport_obj = await transport_cm.__aenter__() # actual_transport_obj was transport
-            print(f"MCP Test: Transport __aenter__ completed. Streams and transport object ({type(actual_transport_obj)}) obtained.")
-
-            print("MCP Test: About to create MCPClientSession...")
-            mcp_session = MCPClientSession(read_stream, write_stream) # mcp_session was session
-            print("MCP Test: MCPClientSession created. About to session.initialize()...")
-
-            await mcp_session.initialize()
-            print("MCP Test: mcp_session.initialize() completed successfully.")
-            print("MCP Test: Connection and initialization successful!")
-
-        except ImportError as ie:
-            print(f"MCP Test: ImportError - mcp library might not be fully installed/available: {ie}")
-        except TimeoutError:
-            print("MCP Test: Caught TimeoutError during MCP connection/initialization.")
-        except Exception as e:
-            print(f"MCP Test: An error occurred during MCP connection/initialization: {e}")
-            print(traceback.format_exc())
-        finally:
-            print("MCP Test: In finally block.")
-            # Note: mcp_session is the ClientSession, actual_transport_obj is the transport from __aenter__
-            # ClientSession itself might not be an async context manager.
-            # The transport_cm is the context manager for the transport.
-            if transport_cm and hasattr(transport_cm, '__aexit__'):
-                try:
-                    print("MCP Test: Attempting to close transport context manager...")
-                    await transport_cm.__aexit__(None, None, None) # type: ignore
-                    print("MCP Test: Transport context manager closed.")
-                except Exception as e_trans_close:
-                    print(f"MCP Test: Error closing transport context manager: {e_trans_close}")
-            else:
-                print("MCP Test: No transport_cm to close or it lacks __aexit__.")
-            print("MCP Test: Cleanup attempted.")
-
-    try:
-        asyncio.run(_run_mcp_direct_test())
-    except RuntimeError as e:
-        print(f"Could not run MCP direct test with asyncio.run (possibly due to existing loop): {e}")
-
-    print("--- MCP Connection Test Complete ---")
+    # --- MCP Test Section Removed ---
+    # _run_mcp_direct_test function removed
+    # asyncio.run call for MCP test removed
+    # All print statements related to MCP test removed
+    print("\n--- MCP Test Section Fully Removed ---") # Placeholder to confirm removal in output
