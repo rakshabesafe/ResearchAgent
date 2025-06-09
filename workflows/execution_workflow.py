@@ -1,5 +1,5 @@
 from agents.technician_agent import TechnicianAgent
-from praisonai.agents_generator import PraisonTask as Task # Needed for type hinting
+from praisonaiagents import Task # Needed for type hinting
 
 class ExecutionWorkflow:
     def __init__(self, technician_agent: TechnicianAgent):
