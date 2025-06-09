@@ -1,6 +1,6 @@
 from agents.analyst_agent import AnalystAgent
 from agents.writer_agent import WriterAgent
-from praisonai.agents_generator import PraisonTask as Task # Needed for type hinting
+from praisonaiagents import Task # Needed for type hinting
 
 class AnalysisAndWritingWorkflow:
     def __init__(self, analyst_agent: AnalystAgent, writer_agent: WriterAgent):

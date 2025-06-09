@@ -1,5 +1,5 @@
-from praisonai.agents_generator import PraisonAgent as PraisonAIAgent
-from praisonai.agents_generator import PraisonTask as Task
+from praisonaiagents import Agent as PraisonAIAgent
+from praisonaiagents import Task
 from tools.scientific_tools import ScientificTools
 
 class ResearcherAgent:

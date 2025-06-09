@@ -5,9 +5,9 @@
 import os
 import asyncio # Keep asyncio as PraisonAI/LiteLLM might use it internally
 
-from praisonai import PraisonAI
-from praisonai.agents_generator import PraisonAgent as PraisonAIAgent
-from praisonai.agents_generator import PraisonTask as Task
+from praisonaiagents import PraisonAIAgents as Workflow
+from praisonaiagents import Agent as PraisonAIAgent
+from praisonaiagents import Task
 
 from tools.scientific_tools import ScientificTools
 # MCP related imports removed
@@ -50,8 +50,28 @@ elif llm_provider == "openai":
 else:
     raise ValueError(f"Unsupported LLM_PROVIDER: '{llm_provider}'. Must be 'openai' or 'ollama'.")
 
-llm_object_for_agents = PraisonAI(**llm_config_params)
-print("--- LLM Configuration Complete ---")
+# Determine the LLM configuration to be passed to individual agent instances
+agent_llm_config = None
+if llm_provider == "ollama":
+    agent_llm_config = os.environ.get("OLLAMA_MODEL_NAME")
+    # If praisonaiagents.Agent expects a dict, this might be:
+    # agent_llm_config = {
+    #     "model": os.environ.get("OLLAMA_MODEL_NAME"),
+    #     "api_base": os.environ.get("OLLAMA_API_BASE"),
+    #     # Potentially "api_key": "not-needed" or actual key if required by specific ollama setup with LiteLLM
+    # }
+elif llm_provider == "openai":
+    # Pass a dictionary to ensure api_key is explicitly included for LiteLLM
+    agent_llm_config = {
+        "model": os.environ.get("OPENAI_MODEL_NAME", "gpt-3.5-turbo"),
+        "api_key": os.environ.get("OPENAI_API_KEY", "not-needed") # Ensure OPENAI_API_KEY is included
+    }
+    # If an API base is needed (e.g. for local OpenAI compatible server), add it here:
+    # if os.environ.get("OPENAI_API_BASE"):
+    #    agent_llm_config["api_base"] = os.environ.get("OPENAI_API_BASE")
+
+print(f"--- Agent LLM Config determined: {agent_llm_config} ---")
+print("--- LLM Configuration for Agents Complete ---") # End of LLM config block
 
 # --- MCP Setup Removed ---
 # MCPClientManager instantiation removed
@@ -59,16 +79,17 @@ print("--- LLM Configuration Complete ---")
 # _run_async_cleanup function removed
 # MCP_TOOLS_CONFIG list removed
 
-# --- Agent Instantiation ---
-researcher_agent_instance = ResearcherAgent(llm=llm_object_for_agents)
-designer_agent_instance = DesignerAgent(llm=llm_object_for_agents)
-technician_agent_instance = TechnicianAgent(llm=llm_object_for_agents)
-analyst_agent_instance = AnalystAgent(llm=llm_object_for_agents)
-writer_agent_instance = WriterAgent(llm=llm_object_for_agents)
-reviewer_agent_instance = ReviewerAgent(llm=llm_object_for_agents)
+# --- Agent Instantiation (must happen before Workflow instantiation) ---
+# The 'llm' parameter for these custom agent classes will now be the agent_llm_config
+researcher_agent_instance = ResearcherAgent(llm=agent_llm_config)
+designer_agent_instance = DesignerAgent(llm=agent_llm_config)
+technician_agent_instance = TechnicianAgent(llm=agent_llm_config)
+analyst_agent_instance = AnalystAgent(llm=agent_llm_config)
+writer_agent_instance = WriterAgent(llm=agent_llm_config)
+reviewer_agent_instance = ReviewerAgent(llm=agent_llm_config)
 
 all_agents_instances = [
-    researcher_agent_instance.agent,
+    researcher_agent_instance.agent, # Assuming .agent gives the PraisonAIAgent (praisonaiagents.Agent) instance
     designer_agent_instance.agent,
     technician_agent_instance.agent,
     analyst_agent_instance.agent,
@@ -76,7 +97,13 @@ all_agents_instances = [
     reviewer_agent_instance.agent
 ]
 
-# --- Workflow Instantiation ---
+# --- Workflow Instantiation (now with agents) ---
+# llm_config_params is currently empty. If Workflow needs specific LLM settings beyond agents,
+# this might need to be populated from llm_provider logic too.
+llm_object_for_agents = Workflow(agents=all_agents_instances, process="workflow", **llm_config_params)
+print("--- Main Workflow Object Instantiated ---")
+
+# --- Workflow Definitions (associating agents with their roles in these conceptual workflows) ---
 hypothesis_design_wf = HypothesisDesignWorkflow(researcher_agent_instance, designer_agent_instance)
 execution_wf = ExecutionWorkflow(technician_agent_instance)
 analysis_writing_wf = AnalysisAndWritingWorkflow(analyst_agent_instance, writer_agent_instance)
@@ -96,8 +123,8 @@ if __name__ == "__main__":
     tasks_rev = review_wf.get_tasks()
     all_tasks = tasks_hd + tasks_ex + tasks_aw + tasks_rev
 
-    print("--- Attempting to run main PraisonAI crew using llm_object_for_agents.main() ---")
-    final_manuscript = llm_object_for_agents.main()
+    print("--- Attempting to run main PraisonAI crew using llm_object_for_agents.start() ---")
+    final_manuscript = llm_object_for_agents.start()
 
     print("\n\n✅ AI Scientist Framework execution complete!")
     print("="*50)
